@@ -8,14 +8,13 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Threading.Tasks;
 
 namespace CyberpunkMac
 {
 	public class Enemy
 	{
 		public Rect Bounds;
-		public int Type; // 0-Арасака, 1-NCPD, 2-Смэшер, 3-Porsche, 4-V-Tech, 5-Бестия
+		public int Type;
 	}
 
 	public class FlyingAV
@@ -227,6 +226,72 @@ namespace CyberpunkMac
 					if (spawnRogueNext) { enemies.Add(new Enemy { Bounds = new Rect(820, groundY - 60, 44, 60), Type = 5 }); spawnRogueNext = false; spawnTimer = rand.Next(50, 75); }
 					else if (spawnVtechNext) { enemies.Add(new Enemy { Bounds = new Rect(820, groundY - 36, 104, 36), Type = 4 }); spawnVtechNext = false; spawnTimer = rand.Next(50, 75); }
 					else if (spawnPorscheNext) { enemies.Add(new Enemy { Bounds = new Rect(820, groundY - 36, 96, 36), Type = 3 }); spawnPorscheNext = false; spawnTimer = rand.Next(50, 75); }
+else if (spawnSmasherNext) { enemies.Add(new Enemy { Bounds = new Rect(820, groundY - 76, 56, 76), Type = 2 }); spawnSmasherNext = false; spawnTimer = rand.Next(48, 72); }
+else
+{
+int count = rand.Next(1, (score >= 150) ? 5 : 4);
+int enemyType = rand.Next(0, 2);
+for (int c = 0; c < count; c++)
+enemies.Add(new Enemy { Bounds = new Rect(800 + (c * 34), groundY - 56, 40, 56), Type = enemyType });
+spawnTimer = rand.Next(32, 60);
+}
+}
+}
+Rect playerHitbox = new Rect(playerX + 8, playerY + 4, 28, playerHeight - 6);
+for (int i = enemies.Count - 1; i >= 0; i--)
+{
+Enemy enemy = enemies[i];
+Rect b = enemy.Bounds;
+double moveX = (enemy.Type == 4) ? (gameSpeed + 7) : ((enemy.Type == 3) ? (gameSpeed + 5) : gameSpeed);
+enemy.Bounds = new Rect(b.X - moveX, b.Y, b.Width, b.Height);
+Rect enemyHitbox = enemy.Bounds;
+if (enemy.Type == 2) enemyHitbox = new Rect(enemy.Bounds.X + 8, enemy.Bounds.Y + 4, enemy.Bounds.Width - 16, enemy.Bounds.Height - 4);
+else if (enemy.Type == 3 || enemy.Type == 4) enemyHitbox = new Rect(enemy.Bounds.X + 6, enemy.Bounds.Y + 6, enemy.Bounds.Width - 12, enemy.Bounds.Height - 6);
+if (playerHitbox.Intersects(enemyHitbox))
+{
+isGameOver = true;
+gameOverCause = enemy.Type;
+SaveHighScore();
+}
+if (enemy.Bounds.X + enemy.Bounds.Width < -160)
+{
+score += (enemy.Type == 5) ? 100 : (enemy.Type == 4) ? 70 : (enemy.Type == 3 || enemy.Type == 2) ? 50 : 10;
+enemies.RemoveAt(i);
+if (score > highScore)
+{
+highScore = score;
+SaveHighScore();
+}
+if (score % 40 == 0 && gameSpeed < 34) gameSpeed++;
+if (score >= 3000 && !davidSpawned)
+{
+davidSpawned = true;
+davidTimer = 260;
+}
+if (score < 3200)
+{
+if (score >= nextAltMilestone) { nextAltMilestone += 1000; altActive = true; altX = 820; }
+if (score >= 520 && !satSpawned) { satSpawned = true; satActive = true; satX = 760; satY = -20; satFlashAlpha = 95; johnnyCommentTimer = 140; }
+if (score >= nextSmasherMilestone) { nextSmasherMilestone += 730; spawnSmasherNext = true; }
+if (score >= 1000 && !porscheSpawned) { porscheSpawned = true; spawnPorscheNext = true; }
+if (score >= 1800 && !vtechSpawned) { vtechSpawned = true; spawnVtechNext = true; }
+if (score >= 2500 && !rogueSpawned) { rogueSpawned = true; spawnRogueNext = true; }
+}
+}
+}
+if (davidTimer > 0) davidTimer--;
+if (satActive)
+{
+satX -= 3.5;
+satY += 2.2;
+if (satY > groundY + 20) satActive = false;
+}
+if (satFlashAlpha > 0) satFlashAlpha -= 5;
+if (johnnyCommentTimer > 0) johnnyCommentTimer--;
+if (altActive)
+{
+altX -= 6;
+altY = 95 + Math.Sin(altX * 0.04) * 12;
 if (altX < -320) altActive = false;
 }
 InvalidateVisual();
@@ -377,7 +442,6 @@ private void DrawCorpTowers(DrawingContext ctx)
 {
 var winDim = new SolidColorBrush(Color.FromRgb(28, 34, 48));
 var winLit = new SolidColorBrush(Color.FromRgb(65, 140, 170));
-// 1. ARASAKA
 ctx.DrawLine(new Pen(Brushes.Crimson, 2), new Point(95, 25), new Point(95, 52));
 ctx.FillRectangle(Brushes.Red, new Rect(93, 22, 5, 5));
 ctx.FillRectangle(new SolidColorBrush(Color.FromRgb(24, 22, 34)), new Rect(78, 52, 36, 18));
@@ -389,23 +453,22 @@ for (int wy = 160; wy < 310; wy += 22)
 ctx.FillRectangle((wy == 204) ? winLit : winDim, new Rect(50, wy, 14, 10));
 ctx.FillRectangle(winDim, new Rect(110, wy, 14, 10));
 }
-// 2. NIGHT CORP
 ctx.DrawLine(new Pen(Brushes.MediumTurquoise, 2), new Point(272, 18), new Point(272, 42));
 ctx.FillRectangle(new SolidColorBrush(Color.FromRgb(20, 26, 38)), new Rect(238, 42, 68, 13));
 ctx.DrawRectangle(new SolidColorBrush(Color.FromRgb(15, 20, 30)), new Pen(new SolidColorBrush(Color.FromRgb(35, 75, 95)), 1), new Rect(220, 55, 105, 275));
 ctx.DrawLine(new Pen(Brushes.MediumTurquoise, 2), new Point(220, 55), new Point(325, 55));
 DrawText(ctx, "NIGHT CORP", 11, Brushes.MediumTurquoise, 234, 68);
 for (int wy = 95; wy < 310; wy += 24)
+{
 for (int wx = 232; wx <= 300; wx += 22)
 ctx.FillRectangle((wy == 143 && wx == 254) ? winLit : winDim, new Rect(wx, wy, 12, 12));
-// 3. MILITECH
+}
 ctx.FillRectangle(new SolidColorBrush(Color.FromRgb(22, 28, 42)), new Rect(442, 78, 60, 17));
 ctx.DrawRectangle(new SolidColorBrush(Color.FromRgb(16, 22, 34)), new Pen(new SolidColorBrush(Color.FromRgb(30, 55, 85)), 1), new Rect(420, 95, 105, 235));
 ctx.DrawLine(new Pen(Brushes.DeepSkyBlue, 2), new Point(420, 95), new Point(525, 95));
 DrawText(ctx, "MILITECH", 11, Brushes.DeepSkyBlue, 440, 108);
 for (int wx = 435; wx <= 505; wx += 23)
 ctx.DrawLine(new Pen(new SolidColorBrush(Color.FromRgb(28, 40, 60)), 2), new Point(wx, 132), new Point(wx, 325));
-// 4. KANG TAO
 ctx.DrawLine(new Pen(Brushes.Gold, 1), new Point(665, 28), new Point(665, 50));
 ctx.DrawLine(new Pen(Brushes.Gold, 1), new Point(705, 28), new Point(705, 50));
 ctx.FillRectangle(new SolidColorBrush(Color.FromRgb(28, 26, 36)), new Rect(650, 50, 70, 15));
