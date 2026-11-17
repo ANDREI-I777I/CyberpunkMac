@@ -1,0 +1,22 @@
+name: Build for Mac M3
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Publish for Apple Silicon (M3)
+        run: dotnet publish -c Release -r osx-arm64 --self-contained true -p:PublishSingleFile=true -o ./mac-release
+      - name: Upload Mac Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cyberpunk-Mac-M3
+          path: ./mac-release/
